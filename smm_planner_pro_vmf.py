@@ -388,13 +388,17 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
     with tab3:
         st.subheader("🤖 Настоящий AI-Генератор постов (Gemini API)")
 
-        # Ввод API ключа Gemini (можно сохранить в Streamlit Secrets или вводить вручную)
-        api_key = st.text_input(
-            "🔑 Введите Ваш Gemini API Key:", 
-            type="password", 
-            help="Получить бесплатный ключ можно в Google AI Studio (aistudio.google.com)",
-            key="gemini_key_input"
-        )
+        # Проверяем, сохранен ли ключ в Streamlit Secrets, иначе просим ввести вручную
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+            st.success("✅ Gemini API Key подключен из настроек!")
+        else:
+            api_key = st.text_input(
+                "🔑 Введите Ваш Gemini API Key:", 
+                type="password", 
+                help="Получить бесплатный ключ можно в Google AI Studio (aistudio.google.com)",
+                key="gemini_key_input"
+            )
 
         col1, col2 = st.columns(2)
 

@@ -388,7 +388,7 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
     with tab3:
         st.subheader("🤖 Настоящий AI-Генератор постов (Gemini API)")
 
-        # Проверяем, сохранен ли ключ в Streamlit Secrets, иначе просим ввести вручную
+        # Проверяем, сохранен ли ключ в Streamlit Secrets
         if "GEMINI_API_KEY" in st.secrets:
             api_key = st.secrets["GEMINI_API_KEY"]
             st.success("✅ Gemini API Key подключен из настроек!")
@@ -425,14 +425,13 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
             if not topic.strip():
                 st.warning("Пожалуйста, укажите тему поста перед генерацией.")
             elif not api_key.strip():
-                st.error("Пожалуйста, укажите Gemini API Key для генерации текста через ИИ.")
+                st.error("Пожалуйста, укажите Gemini API Key.")
             else:
                 with st.spinner("Нейросеть генерирует уникальный текст..."):
                     try:
                         import google.generativeai as genai
                         
                         genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel('gemini-1.5-flash')
                         
                         prompt = f"""Напиши качественный, готовый к публикации пост для {platform}.
 Тема / Заголовок: {topic}
@@ -450,19 +449,40 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
   📍 Встреча по предварительному звонку.
 """
 
-                        response = model.generate_content(prompt)
-                        generated_text = response.text
+                        # Список моделей по приоритету (на случай изменения наименований у Google)
+                        candidate_models = [
+                            "gemini-2.5-flash",
+                            "gemini-2.0-flash",
+                            "gemini-1.5-flash-latest",
+                            "gemini-pro"
+                        ]
+                        
+                        response = None
+                        last_error = None
+                        
+                        for model_name in candidate_models:
+                            try:
+                                model = genai.GenerativeModel(model_name)
+                                response = model.generate_content(prompt)
+                                if response and response.text:
+                                    break
+                            except Exception as err:
+                                last_error = err
+                                continue
+                        
+                        if response and response.text:
+                            st.success("🎉 Пост успешно сгенерирован нейросетью!")
+                            st.text_area(
+                                "Готовый результат (можно отредактировать):",
+                                value=response.text,
+                                height=300,
+                                key="ai_result_output"
+                            )
+                        else:
+                            st.error(f"Не удалось подключиться к моделям Gemini: {last_error}")
 
-                        st.success("🎉 Пост успешно сгенерирован нейросетью!")
-
-                        st.text_area(
-                            "Готовый результат (можно отредактировать):",
-                            value=generated_text,
-                            height=300,
-                            key="ai_result_output"
-                        )
                     except Exception as e:
-                        st.error(f"Ошибка при обращении к ИИ: {e}")
+                        st.error(f"Ошибка при обработке запроса: {e}")
 # ==========================================
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================

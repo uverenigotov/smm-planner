@@ -488,18 +488,28 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
 
                         if response and response.text:
                             st.success(f"🎉 Пост успешно сгенерирован (модель: `{used_model}`)!")
-                            st.text_area(
+                            
+                            # Поле с текстом (его можно подправить вручную)
+                            final_text = st.text_area(
                                 "Готовый результат (можно отредактировать):",
                                 value=response.text,
                                 height=300,
                                 key="ai_result_output"
                             )
+                            
+                            # Кнопка быстрой сохранения в базу
+                            if st.button("💾 Сохранить пост в базу", type="secondary", key="save_ai_post_btn"):
+                                if "saved_posts" not in st.session_state:
+                                    st.session_state.saved_posts = []
+                                
+                                st.session_state.saved_posts.append({
+                                    "topic": topic,
+                                    "platform": platform,
+                                    "text": final_text
+                                })
+                                st.success("✅ Пост сохранен! Вы можете найти его в разделе «База Сохраненных Постов».")
                         else:
                             st.error(f"Не удалось подключиться к Gemini: {last_error}")
-
-                    except Exception as e:
-                        st.error(f"Ошибка при обработке запроса: {e}")
-# ==========================================
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================
 elif menu == "📦 Архив и База Сохраненных Постов":

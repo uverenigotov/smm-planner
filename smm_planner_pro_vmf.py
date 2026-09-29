@@ -433,40 +433,41 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
                         
                         genai.configure(api_key=api_key)
                         
-                        prompt = f"""Напиши качественный, готовый к публикации пост для {platform}.
-Тема / Заголовок: {topic}
+                        prompt = f"""Ты — профессиональный SMM-копирайтер. 
+Напиши готовый к публикации пост на РУССКОМ языке для {platform}.
+
+Тема поста: {topic}
 Тональность: {tone}
 
-Требования:
-- Напиши грамотный, осмысленный и увлекательный текст без воды.
-- Использовать форматирование (абзацы, списки, эмодзи).
+СТРОГИЕ ТРЕБОВАНИЯ:
+1. Напиши ТОЛЬКО финальный готовый текст поста на русском языке. 
+2. Категорически запрещено выводить размышления, черновики, пояснения или текст на английском языке!
+3. Используй красивое форматирование: абзацы, списки, эмодзи.
 """
                         if include_cta:
                             prompt += """
-- В конце поста добавь призыв к действию и контакты:
-  Мастерская #Армавиртелеремонт
-  📞 Звоните: +7 (929) 850-19-93
-  📍 Встреча по предварительному звонку.
+4. В конце поста обязательно добавь контакты:
+   Мастерская #Армавиртелеремонт
+   📞 Звоните: +7 (929) 850-19-93
+   📍 Встреча по предварительному звонку.
 """
 
-                        # Список приоритетных моделей, начиная с gemini-3.8-flash
+                        # Отбираем ТОЛЬКО оригинальные Gemini-модели (исключаем Gemma)
                         candidate_models = [
-                            "gemini-3.8-flash",
-                            "gemini-3.0-flash",
+                            "gemini-2.5-flash",
+                            "gemini-2.0-flash",
                             "gemini-1.5-flash",
                             "gemini-pro"
                         ]
 
-                        # Запрашиваем динамический список активных моделей аккаунта
                         try:
-                            live_models = [
+                            live_gemini = [
                                 m.name.replace("models/", "") 
                                 for m in genai.list_models() 
-                                if 'generateContent' in m.supported_generation_methods
+                                if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()
                             ]
-                            if live_models:
-                                # Приоритет отдаем живым моделям аккаунта
-                                candidate_models = live_models + [m for m in candidate_models if m not in live_models]
+                            if live_gemini:
+                                candidate_models = live_gemini + [m for m in candidate_models if m not in live_gemini]
                         except Exception:
                             pass
 
@@ -494,7 +495,7 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
                                 key="ai_result_output"
                             )
                         else:
-                            st.error(f"Не удалось подключиться к моделям Gemini: {last_error}")
+                            st.error(f"Не удалось подключиться к Gemini: {last_error}")
 
                     except Exception as e:
                         st.error(f"Ошибка при обработке запроса: {e}")

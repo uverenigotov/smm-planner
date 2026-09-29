@@ -452,7 +452,6 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
    📍 Встреча по предварительному звонку.
 """
 
-                        # Отбираем ТОЛЬКО оригинальные Gemini-модели (исключаем Gemma)
                         candidate_models = [
                             "gemini-2.5-flash",
                             "gemini-2.0-flash",
@@ -487,29 +486,35 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
                                 continue
 
                         if response and response.text:
-                            st.success(f"🎉 Пост успешно сгенерирован (модель: `{used_model}`)!")
-                            
-                            # Поле с текстом (его можно подправить вручную)
-                            final_text = st.text_area(
-                                "Готовый результат (можно отредактировать):",
-                                value=response.text,
-                                height=300,
-                                key="ai_result_output"
-                            )
-                            
-                            # Кнопка быстрой сохранения в базу
-                            if st.button("💾 Сохранить пост в базу", type="secondary", key="save_ai_post_btn"):
-                                if "saved_posts" not in st.session_state:
-                                    st.session_state.saved_posts = []
-                                
-                                st.session_state.saved_posts.append({
-                                    "topic": topic,
-                                    "platform": platform,
-                                    "text": final_text
-                                })
-                                st.success("✅ Пост сохранен! Вы можете найти его в разделе «База Сохраненных Постов».")
+                            st.session_state["current_ai_text"] = response.text
+                            st.session_state["current_ai_model"] = used_model
                         else:
                             st.error(f"Не удалось подключиться к Gemini: {last_error}")
+
+                    except Exception as e:
+                        st.error(f"Ошибка при обработке запроса: {e}")
+
+        # Отображение результатов и кнопки сохранения
+        if "current_ai_text" in st.session_state and st.session_state["current_ai_text"]:
+            st.success(f"🎉 Пост успешно сгенерирован (модель: `{st.session_state.get('current_ai_model', 'gemini')}`)!")
+            
+            final_text = st.text_area(
+                "Готовый результат (можно отредактировать):",
+                value=st.session_state["current_ai_text"],
+                height=300,
+                key="ai_result_output"
+            )
+            
+            if st.button("💾 Сохранить пост в базу", type="secondary", key="save_ai_post_btn"):
+                if "saved_posts" not in st.session_state:
+                    st.session_state.saved_posts = []
+                
+                st.session_state.saved_posts.append({
+                    "topic": topic,
+                    "platform": platform,
+                    "text": final_text
+                })
+                st.success("✅ Пост сохранен! Вы можете найти его в разделе «База Сохраненных Постов».")
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================
 elif menu == "📦 Архив и База Сохраненных Постов":

@@ -5,6 +5,13 @@ import datetime
 import json
 import streamlit as st
 
+if "db_df" not in st.session_state:
+    if os.path.exists("smm_planner_vmf.xlsx"):
+        st.session_state["db_df"] = pd.read_excel("smm_planner_vmf.xlsx")
+    else:
+        st.session_state["db_df"] = pd.DataFrame(
+            columns=["id", "pub_date", "channel", "title", "rubric", "status", "post_text"]
+        )
 # ==========================================
 # 1. DATABASE SETUP
 # ==========================================

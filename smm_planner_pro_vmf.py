@@ -427,13 +427,25 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
             elif not api_key.strip():
                 st.error("Пожалуйста, укажите Gemini API Key.")
             else:
-                with st.spinner("Нейросеть генерирует уникальный текст..."):
+                with st.spinner("Нейросеть запрашивает доступные модели и генерирует текст..."):
                     try:
                         import google.generativeai as genai
                         
                         genai.configure(api_key=api_key)
                         
-                        prompt = f"""Напиши качественный, готовый к публикации пост для {platform}.
+                        # 1. Автоматически спрашиваем у Google, какие модели доступны для Вашего ключа
+                        available_models = [
+                            m.name for m in genai.list_models() 
+                            if 'generateContent' in m.supported_generation_methods
+                        ]
+                        
+                        if not available_models:
+                            st.error("Для вашего API-ключа не найдено доступных моделей Gemini. Проверьте ключ в Google AI Studio.")
+                        else:
+                            # 2. Берем первую же действительно рабочую модель (например, models/gemini-1.5-flash или models/gemini-1.5-pro)
+                            selected_model = available_models[0]
+                            
+                            prompt = f"""Напиши качественный, готовый к публикации пост для {platform}.
 Тема / Заголовок: {topic}
 Тональность: {tone}
 
@@ -441,45 +453,27 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
 - Напиши грамотный, осмысленный и увлекательный текст без воды.
 - Использовать форматирование (абзацы, списки, эмодзи).
 """
-                        if include_cta:
-                            prompt += """
+                            if include_cta:
+                                prompt += """
 - В конце поста добавь призыв к действию и контакты:
   Мастерская #Армавиртелеремонт
   📞 Звоните: +7 (929) 850-19-93
   📍 Встреча по предварительному звонку.
 """
 
-                        # Список моделей по приоритету (на случай изменения наименований у Google)
-                        candidate_models = [
-                            "gemini-2.5-flash",
-                            "gemini-2.0-flash",
-                            "gemini-1.5-flash-latest",
-                            "gemini-pro"
-                        ]
-                        
-                        response = None
-                        last_error = None
-                        
-                        for model_name in candidate_models:
-                            try:
-                                model = genai.GenerativeModel(model_name)
-                                response = model.generate_content(prompt)
-                                if response and response.text:
-                                    break
-                            except Exception as err:
-                                last_error = err
-                                continue
-                        
-                        if response and response.text:
-                            st.success("🎉 Пост успешно сгенерирован нейросетью!")
-                            st.text_area(
-                                "Готовый результат (можно отредактировать):",
-                                value=response.text,
-                                height=300,
-                                key="ai_result_output"
-                            )
-                        else:
-                            st.error(f"Не удалось подключиться к моделям Gemini: {last_error}")
+                            model = genai.GenerativeModel(selected_model)
+                            response = model.generate_content(prompt)
+
+                            if response and response.text:
+                                st.success(f"🎉 Пост успешно сгенерирован через модель `{selected_model}`!")
+                                st.text_area(
+                                    "Готовый результат (можно отредактировать):",
+                                    value=response.text,
+                                    height=300,
+                                    key="ai_result_output"
+                                )
+                            else:
+                                st.error("Модель вернула пустой ответ. Попробуйте еще раз.")
 
                     except Exception as e:
                         st.error(f"Ошибка при обработке запроса: {e}")

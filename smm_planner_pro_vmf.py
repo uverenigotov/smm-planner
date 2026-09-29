@@ -494,27 +494,60 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
                     except Exception as e:
                         st.error(f"Ошибка при обработке запроса: {e}")
 
-        # Отображение результатов и кнопки сохранения
+       # Отображение результатов и мгновенное сохранение в Архив приложения
         if "current_ai_text" in st.session_state and st.session_state["current_ai_text"]:
             st.success(f"🎉 Пост успешно сгенерирован (модель: `{st.session_state.get('current_ai_model', 'gemini')}`)!")
             
+            # Поле сгенерированного текста (можно доработать перед сохранением)
             final_text = st.text_area(
                 "Готовый результат (можно отредактировать):",
                 value=st.session_state["current_ai_text"],
-                height=300,
+                height=280,
                 key="ai_result_output"
             )
             
-            if st.button("💾 Сохранить пост в базу", type="secondary", key="save_ai_post_btn"):
-                if "saved_posts" not in st.session_state:
-                    st.session_state.saved_posts = []
-                
-                st.session_state.saved_posts.append({
-                    "topic": topic,
-                    "platform": platform,
-                    "text": final_text
-                })
-                st.success("✅ Пост сохранен! Вы можете найти его в разделе «База Сохраненных Постов».")
+            col_save1, col_save2 = st.columns([1, 2])
+            
+            with col_save1:
+                # Кнопка сохранения в единую базу
+                if st.button("💾 Сохранить пост в Архив", type="primary", key="save_ai_post_btn"):
+                    try:
+                        import pandas as pd
+                        import datetime
+                        import os
+
+                        file_path = "smm_planner_vmf.xlsx"
+                        
+                        # 1. Формируем новую запись
+                        new_post = {
+                            "Дата": datetime.date.today().strftime("%Y-%m-%d"),
+                            "Платформа": platform,
+                            "Тема / Рубрика": topic,
+                            "Текст поста": final_text,
+                            "Статус": "Запланировано"
+                        }
+
+                        # 2. Загружаем существующую базу из файла или session_state
+                        if "db_df" in st.session_state and isinstance(st.session_state["db_df"], pd.DataFrame):
+                            df_current = st.session_state["db_df"]
+                        elif os.path.exists(file_path):
+                            df_current = pd.read_excel(file_path)
+                        else:
+                            df_current = pd.DataFrame(columns=["Дата", "Платформа", "Тема / Рубрика", "Текст поста", "Статус"])
+
+                        # 3. Добавляем новый пост
+                        df_updated = pd.concat([df_current, pd.DataFrame([new_post])], ignore_index=True)
+
+                        # 4. Сохраняем в файл на диске
+                        df_updated.to_excel(file_path, index=False)
+                        
+                        # 5. Главный шаг: обновляем состояние приложения в реальном времени
+                        st.session_state["db_df"] = df_updated
+
+                        st.success("✅ Пост сохранён! Перейдите в раздел «Архив и База Сохраненных Постов» — он уже там.")
+                    
+                    except Exception as err:
+                        st.error(f"Не удалось сохранить пост: {err}")
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================
 elif menu == "📦 Архив и База Сохраненных Постов":

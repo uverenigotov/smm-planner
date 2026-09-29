@@ -510,44 +510,67 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
             
             with col_save1:
                 # Кнопка сохранения в единую базу
-                if st.button("💾 Сохранить пост в Архив", type="primary", key="save_ai_post_btn"):
-                    try:
-                        import pandas as pd
-                        import datetime
-                        import os
+               if st.button("💾 Сохранить пост в Архив", type="primary", key="save_ai_post_btn"):
+                try:
+                    import pandas as pd
+                    import datetime
+                    import os
 
-                        file_path = "smm_planner_vmf.xlsx"
-                        
-                        # 1. Формируем новую запись
+                    file_path = "smm_planner_vmf.xlsx"
+                    
+                    # 1. Загружаем текущую таблицу из памяти или файла
+                    if "db_df" in st.session_state and isinstance(st.session_state["db_df"], pd.DataFrame):
+                        df_current = st.session_state["db_df"]
+                    elif os.path.exists(file_path):
+                        df_current = pd.read_excel(file_path)
+                    else:
+                        df_current = pd.DataFrame()
+
+                    # 2. Вычисляем следующий порядковый ID
+                    next_id = 1
+                    if "id" in df_current.columns and not df_current.empty:
+                        try:
+                            next_id = int(df_current["id"].max()) + 1
+                        except Exception:
+                            next_id = len(df_current) + 1
+                    elif not df_current.empty:
+                        next_id = len(df_current) + 1
+
+                    today_str = datetime.date.today().strftime("%Y-%m-%d")
+                    cols = list(df_current.columns)
+
+                    # 3. Формируем запись под структуру колонок таблицы (английскую или русскую)
+                    if "pub_date" in cols or "channel" in cols:
                         new_post = {
-                            "Дата": datetime.date.today().strftime("%Y-%m-%d"),
+                            "id": next_id,
+                            "pub_date": today_str,
+                            "channel": platform,
+                            "title": topic,
+                            "rubric": tone,
+                            "status": "Запланировано",
+                            "post_text": final_text
+                        }
+                    else:
+                        new_post = {
+                            "id": next_id,
+                            "Дата": today_str,
                             "Платформа": platform,
                             "Тема / Рубрика": topic,
                             "Текст поста": final_text,
                             "Статус": "Запланировано"
                         }
 
-                        # 2. Загружаем существующую базу из файла или session_state
-                        if "db_df" in st.session_state and isinstance(st.session_state["db_df"], pd.DataFrame):
-                            df_current = st.session_state["db_df"]
-                        elif os.path.exists(file_path):
-                            df_current = pd.read_excel(file_path)
-                        else:
-                            df_current = pd.DataFrame(columns=["Дата", "Платформа", "Тема / Рубрика", "Текст поста", "Статус"])
-
-                        # 3. Добавляем новый пост
-                        df_updated = pd.concat([df_current, pd.DataFrame([new_post])], ignore_index=True)
-
-                        # 4. Сохраняем в файл на диске
-                        df_updated.to_excel(file_path, index=False)
-                        
-                        # 5. Главный шаг: обновляем состояние приложения в реальном времени
-                        st.session_state["db_df"] = df_updated
-
-                        st.success("✅ Пост сохранён! Перейдите в раздел «Архив и База Сохраненных Постов» — он уже там.")
+                    # 4. Добавляем запись и сохраняем файл Excel
+                    df_updated = pd.concat([df_current, pd.DataFrame([new_post])], ignore_index=True)
+                    df_updated.to_excel(file_path, index=False)
                     
-                    except Exception as err:
-                        st.error(f"Не удалось сохранить пост: {err}")
+                    # 5. Обновляем сессию Streamlit, чтобы Архив сразу отобразил новую строчку
+                    st.session_state["db_df"] = df_updated
+
+                    st.success(f"✅ Пост с ID #{next_id} успешно сохранён в Архив!")
+                
+                except Exception as err:
+                    st.error(f"Не удалось сохранить пост: {err}")
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================
 elif menu == "📦 Архив и База Сохраненных Постов":

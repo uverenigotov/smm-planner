@@ -386,73 +386,79 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
             """, unsafe_allow_html=True)
 
     with tab3:
-        st.subheader("🤖 Динамический Генератор постов")
+        st.subheader("🤖 Настоящий AI-Генератор постов (Gemini API)")
+
+        # Ввод API ключа Gemini (можно сохранить в Streamlit Secrets или вводить вручную)
+        api_key = st.text_input(
+            "🔑 Введите Ваш Gemini API Key:", 
+            type="password", 
+            help="Получить бесплатный ключ можно в Google AI Studio (aistudio.google.com)",
+            key="gemini_key_input"
+        )
 
         col1, col2 = st.columns(2)
 
         with col1:
             topic = st.text_input(
                 "Тема поста или услуга:",
-                placeholder="Например: Замена подсветки LED телевизора Dexp",
-                key="tab3_topic"
+                placeholder="Например: Как Уверен и Готов помогает освоить нейросети?",
+                key="ai_topic"
             )
             platform = st.selectbox(
                 "Платформа:", ["VK", "Telegram", "Google Business Profile", "Яндекс Карты"],
-                key="tab3_platform"
+                key="ai_platform"
             )
 
         with col2:
             tone = st.selectbox(
                 "Тон публикации:",
                 ["Экспертный / Полезный", "Продающий", "Вовлекающий / История"],
-                key="tab3_tone"
+                key="ai_tone"
             )
-            include_cta = st.checkbox("Добавить призыв к действию (CTA)", value=True, key="tab3_cta")
+            include_cta = st.checkbox("Добавить контакты и CTA (#Армавиртелеремонт)", value=True, key="ai_cta")
 
-        if st.button("🚀 Сгенерировать пост", type="primary", key="tab3_btn"):
+        if st.button("🚀 Сгенерировать пост с ИИ", type="primary", key="ai_gen_btn"):
             if not topic.strip():
                 st.warning("Пожалуйста, укажите тему поста перед генерацией.")
+            elif not api_key.strip():
+                st.error("Пожалуйста, укажите Gemini API Key для генерации текста через ИИ.")
             else:
-                with st.spinner("Генерируем текст поста..."):
-                    header_icon = "📺" if any(w in topic.lower() for w in ["тв", "телевизор", "экран"]) else "⚙️"
-                    
-                    if "Продающий" in tone:
-                        body_text = (
-                            f"{header_icon} **{topic}** — профессионально и с гарантией!\n\n"
-                            f"Нужна помощь по направлению «{topic}»? "
-                            f"В сервисной мастерской #Армавиртелеремонт мы качественно и оперативно "
-                            f"решаем подобные задачи с 1995 года. Доверьте технику профессионалам!"
-                        )
-                    elif "Вовлекающий" in tone:
-                        body_text = (
-                            f"{header_icon} **Задумывались ли вы: {topic}?**\n\n"
-                            f"Каждый день клиенты обращаются к нам с вопросами по теме «{topic}». "
-                            f"В большинстве случаев проблема решается быстрее и проще, чем кажется на первый взгляд. "
-                            f"Мастерская #Армавиртелеремонт всегда готова помочь и проконсультировать!"
-                        )
-                    else:  # Экспертный / Полезный
-                        body_text = (
-                            f"{header_icon} **Полезная информация: {topic}**\n\n"
-                            f"Разбираем важные нюансы по теме «{topic}» от специалистов #Армавиртелеремонт. "
-                            f"Своевременное обращение к мастерам сэкономит ваше время и предотвратит более сложные поломки."
-                        )
+                with st.spinner("Нейросеть генерирует уникальный текст..."):
+                    try:
+                        import google.generativeai as genai
+                        
+                        genai.configure(api_key=api_key)
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        
+                        prompt = f"""Напиши качественный, готовый к публикации пост для {platform}.
+Тема / Заголовок: {topic}
+Тональность: {tone}
 
-                    generated_post = f"{body_text}\n\n"
+Требования:
+- Напиши грамотный, осмысленный и увлекательный текст без воды.
+- Использовать форматирование (абзацы, списки, эмодзи).
+"""
+                        if include_cta:
+                            prompt += """
+- В конце поста добавь призыв к действию и контакты:
+  Мастерская #Армавиртелеремонт
+  📞 Звоните: +7 (929) 850-19-93
+  📍 Встреча по предварительному звонку.
+"""
 
-                    if include_cta:
-                        generated_post += (
-                            "📞 **Звоните нам прямо сейчас:** +7 (929) 850-19-93\n"
-                            "📍 Встреча по предварительному звонку."
+                        response = model.generate_content(prompt)
+                        generated_text = response.text
+
+                        st.success("🎉 Пост успешно сгенерирован нейросетью!")
+
+                        st.text_area(
+                            "Готовый результат (можно отредактировать):",
+                            value=generated_text,
+                            height=300,
+                            key="ai_result_output"
                         )
-
-                    st.success("Пост успешно сгенерирован!")
-
-                    st.text_area(
-                        "Отредактируйте или скопируйте результат:",
-                        value=generated_post,
-                        height=240,
-                        key="tab3_result"
-                    )
+                    except Exception as e:
+                        st.error(f"Ошибка при обращении к ИИ: {e}")
 # ==========================================
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================

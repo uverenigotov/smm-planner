@@ -396,7 +396,7 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
             api_key = st.text_input(
                 "🔑 Введите Ваш Gemini API Key:", 
                 type="password", 
-                help="Получить бесплатный ключ можно в Google AI Studio (aistudio.google.com)",
+                help="Получить бесплатный ключ можно в Google AI Studio",
                 key="gemini_key_input"
             )
 
@@ -430,7 +430,6 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
                 with st.spinner("Нейросеть генерирует уникальный текст..."):
                     try:
                         import google.generativeai as genai
-                        
                         genai.configure(api_key=api_key)
                         
                         prompt = f"""Ты — профессиональный SMM-копирайтер. 
@@ -486,31 +485,32 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
                                 continue
 
                         if response and response.text:
+                            # Сохраняем генерацию и параметры в session_state
                             st.session_state["current_ai_text"] = response.text
                             st.session_state["current_ai_model"] = used_model
+                            st.session_state["last_gen_topic"] = topic
+                            st.session_state["last_gen_platform"] = platform
+                            st.session_state["last_gen_tone"] = tone
                         else:
                             st.error(f"Не удалось подключиться к Gemini: {last_error}")
 
                     except Exception as e:
                         st.error(f"Ошибка при обработке запроса: {e}")
 
-       # Отображение результатов и мгновенное сохранение в Архив приложения
+        # Отображение результатов и сохранение в базу Excel / Архив
         if "current_ai_text" in st.session_state and st.session_state["current_ai_text"]:
             st.success(f"🎉 Пост успешно сгенерирован (модель: `{st.session_state.get('current_ai_model', 'gemini')}`)!")
             
-            # Поле сгенерированного текста (можно доработать перед сохранением)
             final_text = st.text_area(
                 "Готовый результат (можно отредактировать):",
                 value=st.session_state["current_ai_text"],
-                height=280,
+                height=300,
                 key="ai_result_output"
             )
-            
-            col_save1, col_save2 = st.columns([1, 2])
-            
-            with col_save1:
-                # Кнопка сохранения в единую базу
-               if st.button("💾 Сохранить пост в Архив", type="primary", key="save_ai_post_btn"):
+            # Синхронизируем правки ручного редактирования
+            st.session_state["current_ai_text"] = final_text
+
+            if st.button("💾 Сохранить пост в Архив", type="primary", key="save_ai_post_btn"):
                 try:
                     import pandas as pd
                     import datetime
@@ -518,59 +518,61 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
 
                     file_path = "smm_planner_vmf.xlsx"
                     
-                    # 1. Загружаем текущую таблицу из памяти или файла
-                    if "db_df" in st.session_state and isinstance(st.session_state["db_df"], pd.DataFrame):
-                        df_current = st.session_state["db_df"]
-                    elif os.path.exists(file_path):
-                        df_current = pd.read_excel(file_path)
+                    # 1. Загружаем свежие данные из Excel
+                    if os.path.exists(file_path):
+                        df_excel = pd.read_excel(file_path)
                     else:
-                        df_current = pd.DataFrame()
+                        df_excel = pd.DataFrame()
 
-                    # 2. Вычисляем следующий порядковый ID
-                    next_id = 1
-                    if "id" in df_current.columns and not df_current.empty:
+                    # 2. Рассчитываем уникальный порядковый ID
+                    if "id" in df_excel.columns and not df_excel.empty:
                         try:
-                            next_id = int(df_current["id"].max()) + 1
+                            next_id = int(pd.to_numeric(df_excel["id"], errors="coerce").max()) + 1
                         except Exception:
-                            next_id = len(df_current) + 1
-                    elif not df_current.empty:
-                        next_id = len(df_current) + 1
+                            next_id = len(df_excel) + 1
+                    else:
+                        next_id = len(df_excel) + 1
 
                     today_str = datetime.date.today().strftime("%Y-%m-%d")
-                    cols = list(df_current.columns)
+                    saved_topic = st.session_state.get("last_gen_topic", topic) or topic or "Ремонт техники"
+                    saved_platform = st.session_state.get("last_gen_platform", platform) or platform
+                    saved_rubric = st.session_state.get("last_gen_tone", tone) or tone
 
-                    # 3. Формируем запись под структуру колонок таблицы (английскую или русскую)
-                    if "pub_date" in cols or "channel" in cols:
-                        new_post = {
-                            "id": next_id,
-                            "pub_date": today_str,
-                            "channel": platform,
-                            "title": topic,
-                            "rubric": tone,
-                            "status": "Запланировано",
-                            "post_text": final_text
-                        }
+                    # 3. Подготавливаем запись под латинскую структуру колонок вашей базы
+                    new_row_data = {
+                        "id": next_id,
+                        "pub_date": today_str,
+                        "channel": saved_platform,
+                        "title": saved_topic,
+                        "rubric": saved_rubric,
+                        "status": "🚀 Готово к публикации",
+                        "post_text": final_text
+                    }
+
+                    # Если в таблице используются русские колонки, добавляем и их
+                    if not df_excel.empty:
+                        for col in df_excel.columns:
+                            if col not in new_row_data:
+                                if col == "Дата": new_row_data[col] = today_str
+                                elif col == "Платформа": new_row_data[col] = saved_platform
+                                elif col in ["Тема / Рубрика", "Заголовок"]: new_row_data[col] = saved_topic
+                                elif col == "Текст поста": new_row_data[col] = final_text
+                                elif col == "Статус": new_row_data[col] = "🚀 Готово к публикации"
+                                else: new_row_data[col] = ""
+                        
+                        df_updated = pd.concat([df_excel, pd.DataFrame([new_row_data])], ignore_index=True)
                     else:
-                        new_post = {
-                            "id": next_id,
-                            "Дата": today_str,
-                            "Платформа": platform,
-                            "Тема / Рубрика": topic,
-                            "Текст поста": final_text,
-                            "Статус": "Запланировано"
-                        }
+                        df_updated = pd.DataFrame([new_row_data])
 
-                    # 4. Добавляем запись и сохраняем файл Excel
-                    df_updated = pd.concat([df_current, pd.DataFrame([new_post])], ignore_index=True)
+                    # 4. Сохраняем на диск и обновляем глобальное состояние
                     df_updated.to_excel(file_path, index=False)
-                    
-                    # 5. Обновляем сессию Streamlit, чтобы Архив сразу отобразил новую строчку
                     st.session_state["db_df"] = df_updated
 
-                    st.success(f"✅ Пост с ID #{next_id} успешно сохранён в Архив!")
-                
-                except Exception as err:
-                    st.error(f"Не удалось сохранить пост: {err}")
+                    st.success(f"✅ Пост #{next_id} («{saved_topic}») успешно сохранён в файл и доступен в Архиве!")
+                    st.balloons()
+
+                except Exception as save_err:
+                    st.error(f"Ошибка сохранения: {save_err}")
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================
 elif menu == "📦 Архив и База Сохраненных Постов":

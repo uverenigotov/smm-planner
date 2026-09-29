@@ -525,28 +525,25 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
 
                     file_path = "smm_planner_vmf.xlsx"
                     
-                    # 1. Загружаем свежие данные из Excel
-                    if os.path.exists(file_path):
-                        df_excel = pd.read_excel(file_path)
-                    else:
-                        df_excel = pd.DataFrame()
+                    # 1. Берем текущую базу из единого состояния приложения
+                    df_current = st.session_state.get("db_df", pd.DataFrame())
 
-                    # 2. Рассчитываем уникальный порядковый ID
-                    if "id" in df_excel.columns and not df_excel.empty:
+                    # 2. Вычисляем ID для новой записи
+                    if "id" in df_current.columns and not df_current.empty:
                         try:
-                            next_id = int(pd.to_numeric(df_excel["id"], errors="coerce").max()) + 1
+                            next_id = int(pd.to_numeric(df_current["id"], errors="coerce").max()) + 1
                         except Exception:
-                            next_id = len(df_excel) + 1
+                            next_id = len(df_current) + 1
                     else:
-                        next_id = len(df_excel) + 1
+                        next_id = len(df_current) + 1
 
                     today_str = datetime.date.today().strftime("%Y-%m-%d")
                     saved_topic = st.session_state.get("last_gen_topic", topic) or topic or "Ремонт техники"
                     saved_platform = st.session_state.get("last_gen_platform", platform) or platform
                     saved_rubric = st.session_state.get("last_gen_tone", tone) or tone
 
-                    # 3. Подготавливаем запись под латинскую структуру колонок вашей базы
-                    new_row_data = {
+                    # 3. Формируем строку под латинские колонки вашей базы
+                    new_post = {
                         "id": next_id,
                         "pub_date": today_str,
                         "channel": saved_platform,
@@ -556,30 +553,20 @@ elif menu == "✍️ PRO Редактор и AI-Генератор":
                         "post_text": final_text
                     }
 
-                    # Если в таблице используются русские колонки, добавляем и их
-                    if not df_excel.empty:
-                        for col in df_excel.columns:
-                            if col not in new_row_data:
-                                if col == "Дата": new_row_data[col] = today_str
-                                elif col == "Платформа": new_row_data[col] = saved_platform
-                                elif col in ["Тема / Рубрика", "Заголовок"]: new_row_data[col] = saved_topic
-                                elif col == "Текст поста": new_row_data[col] = final_text
-                                elif col == "Статус": new_row_data[col] = "🚀 Готово к публикации"
-                                else: new_row_data[col] = ""
-                        
-                        df_updated = pd.concat([df_excel, pd.DataFrame([new_row_data])], ignore_index=True)
-                    else:
-                        df_updated = pd.DataFrame([new_row_data])
-
-                    # 4. Сохраняем на диск и обновляем глобальное состояние
-                    df_updated.to_excel(file_path, index=False)
+                    # 4. Обновляем единую базу в памяти
+                    df_updated = pd.concat([df_current, pd.DataFrame([new_post])], ignore_index=True)
                     st.session_state["db_df"] = df_updated
 
-                    st.success(f"✅ Пост #{next_id} («{saved_topic}») успешно сохранён в файл и доступен в Архиве!")
-                    st.balloons()
+                    # 5. Сохраняем обновленную таблицу на диск
+                    df_updated.to_excel(file_path, index=False)
+
+                    st.success(f"✅ Пост #{next_id} сохранён в базу!")
+                    
+                    # 6. Перезапускаем интерфейс для немедленного обновления всех вкладок
+                    st.rerun()
 
                 except Exception as save_err:
-                    st.error(f"Ошибка сохранения: {save_err}")
+                    st.error(f"Ошибка при сохранении: {save_err}")
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
 # ==========================================
 elif menu == "📦 Архив и База Сохраненных Постов":

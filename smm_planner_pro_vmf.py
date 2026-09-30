@@ -8,6 +8,7 @@ import streamlit as st
 # 1. DATABASE MANAGEMENT (Единая база SQLite)
 # ==========================================
 DB_FILE = "smm_planner.db"
+STATUS_OPTIONS = ["💡 Идея", "✍️ В работе", "✅ Готов к публикации", "🚀 Опубликован"]
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -28,7 +29,6 @@ def init_db():
         )
     ''')
     
-    # Заполнение демо-данными для первого запуска (Универсальная тематика)
     c.execute("SELECT COUNT(*) FROM posts")
     if c.fetchone()[0] == 0:
         demo_posts = [
@@ -78,7 +78,6 @@ def init_db():
 
 init_db()
 
-# CRUD Операции с БД
 def get_all_posts():
     conn = sqlite3.connect(DB_FILE)
     df = pd.read_sql_query("SELECT * FROM posts ORDER BY pub_date DESC, id DESC", conn)
@@ -158,7 +157,7 @@ menu = st.sidebar.radio(
     "Выберите модуль:",
     [
         "📅 Календарь и Сетка", 
-        "✍️️ PRO Редактор и AI-Генератор", 
+        "✍ PRO Редактор и AI-Генератор", 
         "📦 Архив и База Сохраненных Постов", 
         "⚙️ Настройки и Инструкция"
     ]
@@ -172,7 +171,6 @@ if menu == "📅 Календарь и Сетка":
     
     df = get_all_posts()
     
-    # KPI Панель
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown(f'<div class="metric-card"><div class="metric-value">{len(df)}</div><div class="metric-label">Всего публикаций</div></div>', unsafe_allow_html=True)
@@ -188,7 +186,6 @@ if menu == "📅 Календарь и Сетка":
     
     st.write("")
     
-    # Фильтры
     f_col1, f_col2, f_col3 = st.columns(3)
     with f_col1:
         channels = ["Все"] + list(df['channel'].dropna().unique()) if not df.empty else ["Все"]
@@ -239,10 +236,20 @@ if menu == "📅 Календарь и Сетка":
                         st.markdown(f'<span class="{status_class}">{row["status"]}</span>', unsafe_allow_html=True)
                         st.write("")
                         
-                        # Быстрое изменение статуса
-                        new_st = st.selectbox("Изменить статус:", ["💡 Идея", "✍️ В работе", "✅ Готов к публикации", "🚀 Опубликован"], 
-                                              index=["💡 Идея", "✍️️ В работе", "✅ Готов к публикации", "🚀 Опубликован"].index(row['status']) if row['status'] in ["💡 Идея", "✍️ В работе", "✅ Готов к публикации", "🚀 Опубликован"] else 0,
-                                              key=f"st_change_{row['id']}")
+                        # Безопасный вычет индекса текущего статуса
+                        current_status = str(row['status'])
+                        status_index = 0
+                        for i, s_opt in enumerate(STATUS_OPTIONS):
+                            if s_opt.strip() in current_status.strip() or current_status.strip() in s_opt.strip():
+                                status_index = i
+                                break
+                        
+                        new_st = st.selectbox(
+                            "Изменить статус:", 
+                            STATUS_OPTIONS, 
+                            index=status_index,
+                            key=f"st_change_{row['id']}"
+                        )
                         
                         if new_st != row['status']:
                             update_post_status(row['id'], new_st)
@@ -267,12 +274,11 @@ if menu == "📅 Календарь и Сетка":
 # ==========================================
 # MODULE 2: PRO РЕДАКТОР И AI-ГЕНЕРАТОР
 # ==========================================
-elif menu == "✍️️ PRO Редактор и AI-Генератор":
+elif menu == "✍ PRO Редактор и AI-Генератор":
     st.subheader("✍️ Профессиональный Редактор и AI-Конструктор")
     
     tab1, tab2, tab3 = st.tabs(["🪄 Универсальный AI-Конструктор", "👁 Live-Предпросмотр и Ручной Ввод", "🤖 Генерация текста через Gemini AI"])
     
-    # 1. AI-КОНСТРУКТОР ПРОМПТОВ (Гибкий под любой бизнес)
     with tab1:
         st.markdown("#### 🧩 Конструктор промптов под любой бизнес / проект")
         
@@ -303,9 +309,7 @@ elif menu == "✍️️ PRO Редактор и AI-Генератор":
 
         st.markdown("##### 🚀 Сформированный промпт для нейросети:")
         st.code(generated_prompt, language="text")
-        st.info("💡 Вы можете скопировать этот промпт или сразу использовать вкладку генерации!")
 
-    # 2. РУЧНОЙ ВВОД И LIVE-ПРЕДПРОСМОТР
     with tab2:
         st.markdown("#### ✏️ Ручное редактирование и моментальный предпросмотр")
         
@@ -320,7 +324,7 @@ elif menu == "✍️️ PRO Редактор и AI-Генератор":
                 edit_rubric = st.selectbox("Рубрика:", ["🛠 Полезные советы", "🔥 Акции и Услуги", "⭐ Кейсы и Истории"], index=0, key="edit_rubric")
             with c_row2:
                 edit_date = st.date_input("Дата публикации:", datetime.date.today() + datetime.timedelta(days=1), key="edit_date")
-                edit_status = st.selectbox("Статус:", ["💡 Идея", "✍️ В работе", "✅ Готов к публикации", "🚀 Опубликован"], index=2, key="edit_status")
+                edit_status = st.selectbox("Статус:", STATUS_OPTIONS, index=2, key="edit_status")
             
             edit_content = st.text_area("Текст поста:", 
                 "🥗 Правильное питание — это не сложно, если подход к нему системный!\n\n"
@@ -338,7 +342,7 @@ elif menu == "✍️️ PRO Редактор и AI-Генератор":
             if st.button("💾 Сохранить пост в Базу Данных", type="primary", key="save_manual_post"):
                 save_new_post(edit_title, edit_channel, edit_rubric, edit_date, edit_status, edit_content, edit_tags, edit_media, edit_author_name)
                 st.balloons()
-                st.success("🎉 Пост успешно сохранен в единую SQLite базу!")
+                st.success("🎉 Пост успешно сохранен!")
 
         with e_col2:
             st.markdown("##### 👁 Предпросмотр публикации")
@@ -360,11 +364,9 @@ elif menu == "✍️️ PRO Редактор и AI-Генератор":
             </div>
             """, unsafe_allow_html=True)
 
-    # 3. ДИНАМИЧЕСКИЙ AI-ГЕНЕРАТОР
     with tab3:
         st.subheader("🤖 Генерация постов через Gemini AI API")
 
-        # Проверка API ключа
         if "GEMINI_API_KEY" in st.secrets:
             api_key = st.secrets["GEMINI_API_KEY"]
             st.success("✅ Gemini API Key подключен из Secrets!")
@@ -431,7 +433,7 @@ elif menu == "✍️️ PRO Редактор и AI-Генератор":
         if "current_ai_text" in st.session_state and st.session_state["current_ai_text"]:
             st.success(f"🎉 Сгенерировано (Модель: `{st.session_state.get('current_ai_model', 'Gemini')}`)!")
             
-            final_text = st.text_area("Результат (можно отредактировать перед сохранением):", value=st.session_state["current_ai_text"], height=250, key="ai_result_output")
+            final_text = st.text_area("Результат:", value=st.session_state["current_ai_text"], height=250, key="ai_result_output")
             st.session_state["current_ai_text"] = final_text
 
             if st.button("💾 Сохранить пост в Календарь и Базу", type="primary", key="save_ai_post_btn"):
@@ -451,7 +453,7 @@ elif menu == "✍️️ PRO Редактор и AI-Генератор":
                     author="Gemini AI"
                 )
                 st.balloons()
-                st.success("✅ Пост успешно записан в единую базу SQLite и доступен во всех разделах!")
+                st.success("✅ Пост записан в базу данных!")
 
 # ==========================================
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ
@@ -494,24 +496,12 @@ elif menu == "📦 Архив и База Сохраненных Постов":
 # MODULE 4: НАСТРОЙКИ И ИНСТРУКЦИЯ
 # ==========================================
 elif menu == "⚙️ Настройки и Инструкция":
-    st.subheader("⚙️️ Управление и Инструкция")
-    
+    st.subheader("⚙ Управление и Инструкция")
     st.markdown("""
-    ### 🚀 Руководство по запуску и настройке:
-    
     Приложение работает на единой базе данных **SQLite (`smm_planner.db`)**.
     
-    #### 1. Локальный запуск:
-    ```bash
-    pip install streamlit pandas google-generativeai
-    streamlit run app.py
+    В настройках Streamlit Community Cloud добавьте ваш ключ в **Secrets**:
+    ```toml
+    GEMINI_API_KEY = "ваш_ключ"
     ```
-    
-    #### 2. Развертывание в облаке (Streamlit Community Cloud / Render):
-    * Создайте репозиторий на GitHub и загрузите `app.py`.
-    * В настройках приложения на Streamlit Cloud добавьте Ваш ключ в раздел **Secrets**:
-      ```toml
-      GEMINI_API_KEY = "ваш_ключ_здесь"
-      ```
-    * База данных SQLite автоматически инициализируется при первом старте.
     """)

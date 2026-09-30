@@ -387,7 +387,7 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
             elif not api_key:
                 st.error("Пожалуйста, укажите Gemini API Key.")
             else:
-                with st.spinner("Нейросеть генерирует качественный текст..."):
+                with st.spinner("Запрос к Google API и генерация текста..."):
                     try:
                         import google.generativeai as genai
                         genai.configure(api_key=api_key)
@@ -404,23 +404,61 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                         if include_cta:
                             prompt += "\n3. В конце добавь сильный призыв к действию и предложение обратиться в компанию."
 
-                        model = genai.GenerativeModel("gemini-1.5-flash")
-                        response = model.generate_content(prompt)
+                        # 1. Автоматическое получение списка активных моделей из вашего Google API
+                        available_models = []
+                        try:
+                            for m in genai.list_models():
+                                if 'generateContent' in m.supported_generation_methods:
+                                    clean_name = m.name.replace("models/", "")
+                                    available_models.append(clean_name)
+                        except Exception:
+                            pass
+
+                        # 2. Формирование приоритетного списка моделей с фолбэками
+                        priority_list = [
+                            "gemini-2.5-flash",
+                            "gemini-2.0-flash",
+                            "gemini-1.5-flash-latest",
+                            "gemini-1.5-flash",
+                            "gemini-1.5-pro",
+                            "gemini-pro"
+                        ]
+
+                        # Соединяем модели из API и наш список (без дубликатов)
+                        candidates = [m for m in priority_list if m in available_models] + available_models + priority_list
+                        candidates = list(dict.fromkeys(candidates))
+
+                        response = None
+                        used_model = None
+                        last_error = None
+
+                        # 3. Перебор моделей до первого успешного ответа
+                        for model_name in candidates:
+                            try:
+                                model = genai.GenerativeModel(model_name)
+                                res = model.generate_content(prompt)
+                                if res and res.text:
+                                    response = res
+                                    used_model = model_name
+                                    break
+                            except Exception as err:
+                                last_error = err
+                                continue
 
                         if response and response.text:
                             st.session_state["current_ai_text"] = response.text
-                            st.session_state["current_ai_model"] = "gemini-1.5-flash"
+                            st.session_state["current_ai_model"] = used_model
                             st.session_state["last_gen_topic"] = topic
                             st.session_state["last_gen_platform"] = platform
                             st.session_state["last_gen_tone"] = tone
                         else:
-                            st.error("Ответ от модели пуст.")
+                            st.error(f"⚠️ Ошибка API: {last_error}")
 
                     except Exception as e:
-                        st.error(f"⚠️ Ошибка Google API: {e}")
+                        st.error(f"⚠️ Ошибка подключения к Google API: {e}")
 
         if "current_ai_text" in st.session_state and st.session_state["current_ai_text"]:
-            st.success(f"🎉 Сгенерировано (Модель: `{st.session_state.get('current_ai_model', 'Gemini')}`)!")
+            st.success(f"🎉 Сгенерировано (Использована модель: `{st.session_state.get('current_ai_model', 'Gemini')}`)!")
             
             final_text = st.text_area("Результат:", value=st.session_state["current_ai_text"], height=250, key="ai_result_output")
             st.session_state["current_ai_text"] = final_text

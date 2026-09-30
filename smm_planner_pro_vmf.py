@@ -368,10 +368,10 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
         st.subheader("🤖 Генерация постов через Gemini AI API")
 
         if "GEMINI_API_KEY" in st.secrets:
-            api_key = st.secrets["GEMINI_API_KEY"]
+            api_key = st.secrets["GEMINI_API_KEY"].strip()
             st.success("✅ Gemini API Key подключен из Secrets!")
         else:
-            api_key = st.text_input("🔑 Введите Ваш Gemini API Key:", type="password", key="gemini_key_input")
+            api_key = st.text_input("🔑 Введите Ваш Gemini API Key:", type="password", key="gemini_key_input").strip()
 
         col1, col2 = st.columns(2)
         with col1:
@@ -384,8 +384,8 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
         if st.button("🚀 Сгенерировать пост", type="primary", key="ai_gen_btn"):
             if not topic.strip():
                 st.warning("Пожалуйста, укажите тему поста.")
-            elif not api_key.strip():
-                st.error("Пожалуйста, введите Gemini API Key.")
+            elif not api_key:
+                st.error("Пожалуйста, укажите Gemini API Key.")
             else:
                 with st.spinner("Нейросеть генерирует качественный текст..."):
                     try:
@@ -404,31 +404,20 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                         if include_cta:
                             prompt += "\n3. В конце добавь сильный призыв к действию и предложение обратиться в компанию."
 
-                        candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"]
-                        response = None
-                        used_model = None
-
-                        for model_name in candidate_models:
-                            try:
-                                model = genai.GenerativeModel(model_name)
-                                response = model.generate_content(prompt)
-                                if response and response.text:
-                                    used_model = model_name
-                                    break
-                            except Exception:
-                                continue
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        response = model.generate_content(prompt)
 
                         if response and response.text:
                             st.session_state["current_ai_text"] = response.text
-                            st.session_state["current_ai_model"] = used_model
+                            st.session_state["current_ai_model"] = "gemini-1.5-flash"
                             st.session_state["last_gen_topic"] = topic
                             st.session_state["last_gen_platform"] = platform
                             st.session_state["last_gen_tone"] = tone
                         else:
-                            st.error("Не удалось сгенерировать текст. Проверьте ваш API ключ.")
+                            st.error("Ответ от модели пуст.")
 
                     except Exception as e:
-                        st.error(f"Ошибка при подключении к API: {e}")
+                        st.error(f"⚠️ Ошибка Google API: {e}")
 
         if "current_ai_text" in st.session_state and st.session_state["current_ai_text"]:
             st.success(f"🎉 Сгенерировано (Модель: `{st.session_state.get('current_ai_model', 'Gemini')}`)!")

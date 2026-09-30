@@ -2,6 +2,7 @@ import os
 import sqlite3
 import pandas as pd
 import datetime
+import urllib.parse
 import streamlit as st
 
 # ==========================================
@@ -54,18 +55,6 @@ def init_db():
                 "#анонс #акция #новинка #продвижение",
                 "",
                 "Контент-Менеджер",
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-            ),
-            (
-                "Кейс клиента: Рост продаж в 2 раза за 30 дней",
-                "Google Business Profile",
-                "⭐ Кейсы и Истории",
-                (datetime.date.today() - datetime.timedelta(days=2)).strftime("%Y-%m-%d"),
-                "🚀 Опубликован",
-                "Реальная история о том, как системный контент-план и регулярность публикаций помогли привлечь поток новых клиентов без бюджета на таргет.",
-                "#кейс #успех #бизнес #клиенты",
-                "",
-                "Маркетолог",
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             )
         ]
@@ -145,7 +134,7 @@ st.markdown("""
 st.markdown("""
 <div class="header-banner">
     <h1>🚀 PRO SMM PLANNER & AI EDITOR</h1>
-    <p>Универсальный центр планирования контента, AI-копирайтинга и аналитики публикаций</p>
+    <p>Универсальный центр планирования контента, AI-копирайтинга и визуального дизайна</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -230,13 +219,12 @@ if menu == "📅 Календарь и Сетка":
                         if row['hashtags']:
                             st.markdown(f"*Хэштеги:* `{row['hashtags']}`")
                         if row['media_url']:
-                            st.caption(f"Ссылка на медиафайл: {row['media_url']}")
+                            st.image(row['media_url'], caption="Медиафайл / Обложка", use_container_width=True)
                     
                     with c_col2:
                         st.markdown(f'<span class="{status_class}">{row["status"]}</span>', unsafe_allow_html=True)
                         st.write("")
                         
-                        # Безопасный вычет индекса текущего статуса
                         current_status = str(row['status'])
                         status_index = 0
                         for i, s_opt in enumerate(STATUS_OPTIONS):
@@ -277,7 +265,12 @@ if menu == "📅 Календарь и Сетка":
 elif menu == "✍ PRO Редактор и AI-Генератор":
     st.subheader("✍️ Профессиональный Редактор и AI-Конструктор")
     
-    tab1, tab2, tab3 = st.tabs(["🪄 Универсальный AI-Конструктор", "👁 Live-Предпросмотр и Ручной Ввод", "🤖 Генерация текста через Gemini AI"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🪄 Универсальный AI-Конструктор", 
+        "👁 Live-Предпросмотр и Ручной Ввод", 
+        "🤖 Генерация текста через Gemini AI",
+        "🎨 AI-Обложки и Иллюстрации"
+    ])
     
     with tab1:
         st.markdown("#### 🧩 Конструктор промптов под любой бизнес / проект")
@@ -358,11 +351,10 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                 <h4 style="margin-top: 0; color: #0F172A; font-size: 1.1rem;">{edit_title}</h4>
                 <p style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.5; color: #334155;">{edit_content}</p>
                 <div style="color: #2563EB; font-size: 0.85rem; font-weight: 600; margin-top: 12px;">{edit_tags}</div>
-                <div style="margin-top: 18px; padding-top: 12px; border-top: 1px solid #F1F5F9;">
-                    <button style="background-color: #0F172A; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;">Узнать подробнее</button>
-                </div>
             </div>
             """, unsafe_allow_html=True)
+            if edit_media:
+                st.image(edit_media, caption="Предпросмотр прикреплённого изображения", use_container_width=True)
 
     with tab3:
         st.subheader("🤖 Генерация постов через Gemini AI API")
@@ -404,7 +396,6 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                         if include_cta:
                             prompt += "\n3. В конце добавь сильный призыв к действию и предложение обратиться в компанию."
 
-                        # 1. Автоматическое получение списка активных моделей из вашего Google API
                         available_models = []
                         try:
                             for m in genai.list_models():
@@ -414,7 +405,6 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                         except Exception:
                             pass
 
-                        # 2. Формирование приоритетного списка моделей с фолбэками
                         priority_list = [
                             "gemini-2.5-flash",
                             "gemini-2.0-flash",
@@ -424,7 +414,6 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                             "gemini-pro"
                         ]
 
-                        # Соединяем модели из API и наш список (без дубликатов)
                         candidates = [m for m in priority_list if m in available_models] + available_models + priority_list
                         candidates = list(dict.fromkeys(candidates))
 
@@ -432,7 +421,6 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                         used_model = None
                         last_error = None
 
-                        # 3. Перебор моделей до первого успешного ответа
                         for model_name in candidates:
                             try:
                                 model = genai.GenerativeModel(model_name)
@@ -481,6 +469,71 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                 )
                 st.balloons()
                 st.success("✅ Пост записан в базу данных!")
+
+    # ==========================================
+    # TAB 4: AI-ГЕНЕРАЦИЯ ОБЛОЖЕК И ИЛЛЮСТРАЦИЙ
+    # ==========================================
+    with tab4:
+        st.subheader("🎨 Генерация обложек и иллюстраций для постов")
+        st.markdown("Создавайте сочные обложки под ваш контент по текстовому описанию.")
+
+        img_col1, img_col2 = st.columns([1.1, 0.9])
+
+        with img_col1:
+            img_prompt = st.text_area(
+                "Опишите картинку (Промпт):", 
+                "Современный минималистичный баннер для соцсетей: правильное здоровое питание, свежие овощи, фрукты, светлый фон, 8k качество",
+                height=110,
+                key="img_gen_prompt"
+            )
+
+            style_preset = st.selectbox(
+                "Стиль изображения:",
+                ["Photorealistic (Реалистичное фото)", "Digital Art (Цифровая графика)", "Minimalist (Минимализм)", "3D Render (3D Моделирование)"],
+                key="img_style"
+            )
+
+            gen_method = st.radio("Режим генерации:", ["⚡ Быстрый генератор (Instant AI)", "🎯 Imagen 3 (Google Gemini API)"], horizontal=True)
+
+            if st.button("🖼 Сгенерировать обложку", type="primary", key="start_img_gen"):
+                full_prompt = f"{img_prompt}, {style_preset.split(' ')[0]} style, high resolution, studio lighting"
+                
+                if gen_method == "🎯 Imagen 3 (Google Gemini API)":
+                    with st.spinner("Генерация изображения через Imagen 3..."):
+                        try:
+                            import google.generativeai as genai
+                            if "GEMINI_API_KEY" in st.secrets:
+                                genai.configure(api_key=st.secrets["GEMINI_API_KEY"].strip())
+                            
+                            imagen = genai.ImageGenerationModel("imagen-3.0-generate-002")
+                            result = imagen.generate_images(prompt=full_prompt, number_of_images=1)
+                            
+                            if result and result.images:
+                                image_bytes = result.images[0]._image_bytes
+                                st.session_state["generated_img_url"] = None
+                                st.session_state["generated_img_bytes"] = image_bytes
+                                st.success("🎉 Картинка успешно сгенерирована!")
+                        except Exception as e:
+                            st.warning(f"Imagen 3 недоступен на вашем тарифном ключе ({e}). Переключаем на Instant AI...")
+                            encoded = urllib.parse.quote(full_prompt)
+                            st.session_state["generated_img_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+                            st.session_state["generated_img_bytes"] = None
+                else:
+                    encoded = urllib.parse.quote(full_prompt)
+                    st.session_state["generated_img_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+                    st.session_state["generated_img_bytes"] = None
+                    st.success("🎉 Изображение готово!")
+
+        with img_col2:
+            st.markdown("##### 👁 Сгенерированное изображение")
+            if "generated_img_bytes" in st.session_state and st.session_state["generated_img_bytes"]:
+                st.image(st.session_state["generated_img_bytes"], caption="Сгенерировано via Imagen 3", use_container_width=True)
+            elif "generated_img_url" in st.session_state and st.session_state["generated_img_url"]:
+                st.image(st.session_state["generated_img_url"], caption="Сгенерировано via Instant AI", use_container_width=True)
+                st.code(st.session_state["generated_img_url"], language="text")
+                st.caption("Скопируйте эту ссылку в поле 'Ссылка на медиа' при сохранении поста.")
+            else:
+                st.info("Нажмите кнопку «Сгенерировать обложку», чтобы увидеть результат.")
 
 # ==========================================
 # MODULE 3: АРХИВ И БАЗА СОХРАНЕННЫХ ПОСТОВ

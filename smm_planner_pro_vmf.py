@@ -482,7 +482,7 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
         with img_col1:
             img_prompt = st.text_area(
                 "Опишите картинку (Промпт):", 
-                "Современный минималистичный баннер для соцсетей: правильное здоровое питание, свежие овощи, фрукты, светлый фон, 8k качество",
+                "Мастер ремонтирует телевизор в сервисе, микросхемы, паяльник, рабочий стол",
                 height=110,
                 key="img_gen_prompt"
             )
@@ -493,17 +493,57 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                 key="img_style"
             )
 
+            # Выбор объекта / сюжета
+            composition_type = st.selectbox(
+                "Композиция / Акцент:",
+                ["🎬 Сюжетное фото / Рабочий процесс (с людьми)", "🖼 Коллаж / Детали и крупный план", "📦 Только предметы и техника (без людей)"],
+                key="composition_type"
+            )
+
             gen_method = st.radio("Режим генерации:", ["⚡ Быстрый генератор (Instant AI)", "🎯 Imagen 3 (Google Gemini API)"], horizontal=True)
 
             if st.button("🖼 Сгенерировать обложку", type="primary", key="start_img_gen"):
-                full_prompt = f"{img_prompt}, {style_preset.split(' ')[0]} style, high resolution, studio lighting"
-                
+                with st.spinner("Перевод и оптимизация промпта..."):
+                    # 1. Автоматический перевод и составление детального англоязычного промпта через Gemini
+                    final_en_prompt = img_prompt
+                    api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
+                    
+                    if api_key:
+                        try:
+                            import google.generativeai as genai
+                            genai.configure(api_key=api_key)
+                            model = genai.GenerativeModel("gemini-1.5-flash")
+                            
+                            refine_prompt = (
+                                f"Translate and turn this topic into a clear English prompt for an image generator. "
+                                f"Context: SMM post cover for service/business. Topic: '{img_prompt}'. "
+                                f"Keep it descriptive. Output ONLY the English prompt, no explanations."
+                            )
+                            res = model.generate_content(refine_prompt)
+                            if res and res.text:
+                                final_en_prompt = res.text.strip()
+                        except Exception:
+                            pass
+
+                    # 2. Уточнение стилистики и композиции
+                    style_tag = style_preset.split(' ')[0]
+                    full_prompt = f"{final_en_prompt}, {style_tag} style, highly detailed, commercial advertising photo"
+                    
+                    if "Только предметы" in composition_type:
+                        full_prompt += ", no humans, no people, product shot"
+                    elif "Коллаж" in composition_type:
+                        full_prompt += ", grid collage, multiple views, professional banner"
+
+                    # 3. Негативный промпт — убираем ТОЛЬКО случайные дефолтные портреты девушек
+                    neg_prompt = "close-up female portrait, beauty model posing, girl face shot, default beauty render, watermark, text"
+
+                # Генерация через Imagen 3
                 if gen_method == "🎯 Imagen 3 (Google Gemini API)":
                     with st.spinner("Генерация изображения через Imagen 3..."):
                         try:
                             import google.generativeai as genai
-                            if "GEMINI_API_KEY" in st.secrets:
-                                genai.configure(api_key=st.secrets["GEMINI_API_KEY"].strip())
+                            if api_key:
+                                genai.configure(api_key=api_key)
                             
                             imagen = genai.ImageGenerationModel("imagen-3.0-generate-002")
                             result = imagen.generate_images(prompt=full_prompt, number_of_images=1)
@@ -514,13 +554,17 @@ elif menu == "✍ PRO Редактор и AI-Генератор":
                                 st.session_state["generated_img_bytes"] = image_bytes
                                 st.success("🎉 Картинка успешно сгенерирована!")
                         except Exception as e:
-                            st.warning(f"Imagen 3 недоступен на вашем тарифном ключе ({e}). Переключаем на Instant AI...")
+                            st.warning(f"Imagen 3 недоступен ({e}). Переключаем на Instant AI...")
                             encoded = urllib.parse.quote(full_prompt)
-                            st.session_state["generated_img_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+                            encoded_neg = urllib.parse.quote(neg_prompt)
+                            st.session_state["generated_img_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&negative={encoded_neg}"
                             st.session_state["generated_img_bytes"] = None
+                
+                # Генерация через Pollinations AI (Instant AI)
                 else:
                     encoded = urllib.parse.quote(full_prompt)
-                    st.session_state["generated_img_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+                    encoded_neg = urllib.parse.quote(neg_prompt)
+                    st.session_state["generated_img_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&negative={encoded_neg}"
                     st.session_state["generated_img_bytes"] = None
                     st.success("🎉 Изображение готово!")
 
